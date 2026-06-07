@@ -1,0 +1,68 @@
+/* Document Prose Styling Injections */
+#articleBody p {
+    margin-bottom: 1.25rem;
+    line-height: 1.7;
+}
+
+#articleBody pre {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    margin: 1.5rem 0;
+    position: relative;
+    border: 1px solid #313244;
+}
+
+#articleBody code {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #10b981;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+#articleBody pre code {
+    background-color: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+}
+
+#articleBody table {
+    width: 100%;
+    margin: 1.5rem 0;
+    border-collapse: collapse;
+}
+
+#articleBody th, #articleBody td {
+    padding: 0.75rem;
+    border: 1px solid rgba(156, 163, 175, 0.25);
+    text-align: left;
+}
+
+/* Custom Scrollbar Polish */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #334155;
+}
+
+/* ScrollSpy Highlight Styling */
+.toc-active {
+    color: #10b981 !important;
+    border-left-color: #10b981 !important;
+    font-weight: 600;
+}

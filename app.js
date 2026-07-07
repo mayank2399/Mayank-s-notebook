@@ -5,6 +5,7 @@ const AppState = {
     currentTopic: null,
     currentSubtopic: null,
     collapsedTopics: new Set(),
+    initializedCourses: new Set(),
     recents: JSON.parse(localStorage.getItem('devnotes_recents') || '[]')
 };
 
@@ -88,6 +89,7 @@ function routeHandler() {
 
     AppState.currentCourse = targetCourse;
     document.getElementById('courseSelect').value = targetCourse.slug;
+    ensureDefaultCollapsed();
 
       if (topicSlug && subtopicSlug) {
         const topic = targetCourse.topics.find(t => t.slug === topicSlug);
@@ -124,6 +126,23 @@ function loadFallbackRoot() {
     }
 }
 
+// Collapse every topic the first time a course is opened, so the sidebar
+// starts fully collapsed by default.
+function ensureDefaultCollapsed() {
+    if (!AppState.currentCourse) return;
+    if (AppState.initializedCourses.has(AppState.currentCourse.slug)) return;
+    AppState.currentCourse.topics.forEach(t => AppState.collapsedTopics.add(t.slug));
+    AppState.initializedCourses.add(AppState.currentCourse.slug);
+}
+
+// Keep the "Collapse All" / "Expand All" button label in sync with state.
+function updateToggleAllLabel() {
+    const btn = document.getElementById('toggleAllTopics');
+    if (!btn || !AppState.currentCourse) return;
+    const allCollapsed = AppState.currentCourse.topics.every(t => AppState.collapsedTopics.has(t.slug));
+    btn.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
+}
+
 // Left Tree Architectural Component Rendering
 function renderLeftTopicSidebar() {
     const treeContainer = document.getElementById('topicsTree');
@@ -144,10 +163,12 @@ function renderLeftTopicSidebar() {
         `;
 
         headerDiv.addEventListener('click', () => {
-            if (AppState.collapsedTopics.has(topic.slug)) {
+            const wasCollapsed = AppState.collapsedTopics.has(topic.slug);
+            // Accordion behavior: collapse every topic, then open only the
+            // clicked one (so opening a module auto-closes the previous one).
+            AppState.currentCourse.topics.forEach(t => AppState.collapsedTopics.add(t.slug));
+            if (wasCollapsed) {
                 AppState.collapsedTopics.delete(topic.slug);
-            } else {
-                AppState.collapsedTopics.add(topic.slug);
             }
             renderLeftTopicSidebar();
         });
@@ -175,6 +196,8 @@ function renderLeftTopicSidebar() {
 
         treeContainer.appendChild(topicBox);
     });
+
+    updateToggleAllLabel();
 }
 
 
@@ -200,8 +223,83 @@ function renderMainContentArea() {
     bodyContainer.innerHTML = subtopic.content;
 
     injectCodeBlockButtons();
+    wrapTablesForScroll();
+    renderContentNavigation();
     generateTableOfContents();
     trackRecentHistory(subtopic);
+
+    // Reset scroll to top when navigating between content pages
+    window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+// Builds an ordered flat list of every subtopic within the active course,
+// so we can walk forward/back across topic boundaries.
+function getFlatSubtopics() {
+    const flat = [];
+    AppState.currentCourse.topics.forEach(topic => {
+        topic.subtopics.forEach(sub => {
+            flat.push({ topic, sub });
+        });
+    });
+    return flat;
+}
+
+// Previous / Next pager rendered at the end of each content page.
+function renderContentNavigation() {
+    const container = document.getElementById('contentNav');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const flat = getFlatSubtopics();
+    const currentIndex = flat.findIndex(
+        item => item.topic.slug === AppState.currentTopic.slug && item.sub.slug === AppState.currentSubtopic.slug
+    );
+    if (currentIndex === -1) return;
+
+    const prev = currentIndex > 0 ? flat[currentIndex - 1] : null;
+    const next = currentIndex < flat.length - 1 ? flat[currentIndex + 1] : null;
+
+    const buildLink = (entry, direction) => {
+        const isNext = direction === 'next';
+        const btn = document.createElement('button');
+        btn.className = `group flex-1 min-w-0 flex flex-col ${isNext ? 'items-end text-right' : 'items-start text-left'} gap-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 hover:border-green-500 dark:hover:border-green-500 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-green-500`;
+        btn.innerHTML = `
+            <span class="text-xs font-medium uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                ${isNext ? '' : '<i class="fa-solid fa-arrow-left text-[10px]"></i>'}
+                ${isNext ? 'Next' : 'Previous'}
+                ${isNext ? '<i class="fa-solid fa-arrow-right text-[10px]"></i>' : ''}
+            </span>
+            <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-green-600 dark:group-hover:text-green-400 truncate max-w-full">${entry.sub.name}</span>
+        `;
+        btn.addEventListener('click', () => {
+            window.location.hash = `#/${AppState.currentCourse.slug}/${entry.topic.slug}/${entry.sub.slug}`;
+        });
+        return btn;
+    };
+
+    if (prev) {
+        container.appendChild(buildLink(prev, 'prev'));
+    } else {
+        const spacer = document.createElement('div');
+        spacer.className = 'flex-1 hidden sm:block';
+        container.appendChild(spacer);
+    }
+
+    if (next) {
+        container.appendChild(buildLink(next, 'next'));
+    }
+}
+
+// Wrap wide tables in a horizontally scrollable container so they don't
+// break the layout on small screens.
+function wrapTablesForScroll() {
+    document.querySelectorAll('#articleBody table').forEach(table => {
+        if (table.parentElement && table.parentElement.classList.contains('table-scroll')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-scroll';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    });
 }
 
 // Interactive Copy Capabilities Feature Injections
@@ -325,12 +423,11 @@ function setupSearchEngine() {
 function setupCollapsibleControls() {
     const toggleBtn = document.getElementById('toggleAllTopics');
     toggleBtn.addEventListener('click', () => {
-        if (AppState.collapsedTopics.size === AppState.currentCourse.topics.length) {
+        const allCollapsed = AppState.currentCourse.topics.every(t => AppState.collapsedTopics.has(t.slug));
+        if (allCollapsed) {
             AppState.collapsedTopics.clear();
-            toggleBtn.textContent = "Collapse All";
         } else {
             AppState.currentCourse.topics.forEach(t => AppState.collapsedTopics.add(t.slug));
-            toggleBtn.textContent = "Expand All";
         }
         renderLeftTopicSidebar();
     });

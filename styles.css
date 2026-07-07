@@ -32,16 +32,47 @@
     border-radius: 0;
 }
 
+/* Horizontal scroll wrapper for wide tables on small screens */
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1.5rem 0;
+}
+
 #articleBody table {
     width: 100%;
-    margin: 1.5rem 0;
+    margin: 0;
     border-collapse: collapse;
+}
+
+.table-scroll table {
+    min-width: 32rem;
 }
 
 #articleBody th, #articleBody td {
     padding: 0.75rem;
     border: 1px solid rgba(156, 163, 175, 0.25);
     text-align: left;
+}
+
+/* Prevent long words / URLs from overflowing on narrow viewports */
+#articleBody {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+#articleBody img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Slightly tighter code blocks on small screens */
+@media (max-width: 640px) {
+    #articleBody pre {
+        padding: 0.75rem;
+        font-size: 0.8rem;
+    }
 }
 
 /* Custom Scrollbar Polish */
